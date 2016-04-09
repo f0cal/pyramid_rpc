@@ -168,7 +168,7 @@ def add_xmlrpc_endpoint(config, name, *args, **kw):
     """
     default_mapper = kw.pop('default_mapper', MapplyViewMapper)
     default_renderer = kw.pop('default_renderer', DEFAULT_RENDERER)
-
+    default_exception_view = kw.pop('default_exception_view',exception_view)
     endpoint = Endpoint(
         name,
         default_mapper=default_mapper,
@@ -179,7 +179,7 @@ def add_xmlrpc_endpoint(config, name, *args, **kw):
     kw['xmlrpc_endpoint'] = True
 
     config.add_route(name, *args, **kw)
-    config.add_view(exception_view, route_name=name, context=Exception,
+    config.add_view(default_exception_view, route_name=name, context=Exception,
                     permission=NO_PERMISSION_REQUIRED,
                     renderer=endpoint.default_renderer)
 
@@ -307,6 +307,3 @@ def includeme(config):
     config.add_directive('add_xmlrpc_endpoint', add_xmlrpc_endpoint)
     config.add_directive('add_xmlrpc_method', add_xmlrpc_method)
     config.add_renderer(name=DEFAULT_RENDERER, factory=XMLRPCRenderer())
-    config.add_view(exception_view, context=xmlrpclib.Fault,
-                    permission=NO_PERMISSION_REQUIRED,
-                    renderer=DEFAULT_RENDERER)
