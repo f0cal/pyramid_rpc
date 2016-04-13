@@ -117,6 +117,19 @@ class EndpointPredicate(object):
             return True
 
 
+class HelpPredicate(object):
+    def __init__(self, val, config):
+        self.help = val
+
+    def text(self):
+        return 'xmlrpc method help = %s' % self.help
+
+    phash = text
+
+    def __call__(self, context, request):
+        return True
+
+
 class MethodPredicate(object):
     def __init__(self, val, config):
         self.method = val
@@ -160,7 +173,19 @@ def listMethods(request):
                 method = pred.method
         if method:
             methods.append(method)
+
     return methods
+
+
+def methodHelp(request, method):
+    introspector = request.registry.introspector
+    for view in introspector.get_category('views'):
+        for pred in view['introspectable']['predicates']:
+            if isinstance(pred, MethodPredicate) and method == pred.method:
+                for help in view['introspectable']['predicates']:
+                    if isinstance(help, HelpPredicate):
+                        return help.help
+    return "Method not found."
 
 
 def add_xmlrpc_endpoint(config, name, *args, **kw):
@@ -198,7 +223,13 @@ def add_xmlrpc_endpoint(config, name, *args, **kw):
     add_xmlrpc_method(config, listMethods, endpoint=name,
                       method="system.listMethods",
                       permission=NO_PERMISSION_REQUIRED,
-                      renderer=endpoint.default_renderer)
+                      renderer=endpoint.default_renderer,
+                      help="List invocable methods.")
+    add_xmlrpc_method(config, methodHelp, endpoint=name,
+                      method="system.methodHelp",
+                      permission=NO_PERMISSION_REQUIRED,
+                      renderer=endpoint.default_renderer,
+                      help="Get help text for a method.")
 
 
 def add_xmlrpc_method(config, view, **kw):
@@ -242,19 +273,24 @@ def add_xmlrpc_method(config, view, **kw):
             'Cannot register a XML-RPC method without specifying the '
             '"method"')
 
+    methodhelp = kw.pop('help', None)
+    if not methodhelp:
+        methodhelp = "No help message provided."
+
     mapper = kw.pop('mapper', _marker)
     if mapper is _marker:
         # only override mapper if not supplied
         mapper = endpoint.default_mapper
-    kw['mapper'] = mapper
 
     renderer = kw.pop('renderer', _marker)
     if renderer is _marker:
         # Only override renderer if not supplied
         renderer = endpoint.default_renderer
-    kw['renderer'] = renderer
 
+    kw['mapper'] = mapper
+    kw['renderer'] = renderer
     kw['xmlrpc_method'] = method
+    kw['xmlrpc_methodhelp'] = methodhelp
 
     config.add_view(view, route_name=endpoint_name, **kw)
 
@@ -318,6 +354,7 @@ def includeme(config):
     if not hasattr(config.registry, 'xmlrpc_endpoints'):
         config.registry.xmlrpc_endpoints = {}
 
+    config.add_view_predicate('xmlrpc_methodhelp', HelpPredicate)
     config.add_view_predicate('xmlrpc_method', MethodPredicate)
     config.add_route_predicate('xmlrpc_endpoint', EndpointPredicate)
 

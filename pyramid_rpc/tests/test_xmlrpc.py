@@ -204,8 +204,20 @@ class TestXMLRPCIntegration(unittest.TestCase):
         app = config.make_wsgi_app()
         app = TestApp(app)
         resp = self._callFUT(app, 'system.listMethods', ())
-        print(resp)
-        assert(False)
+        assert ('dummy' in resp and 'system.listMethods' in resp)
+
+    def test_it_methodHelp(self):
+        def view(request, a, b):
+            return [a, b]
+        config = self.config
+        config.include('pyramid_rpc.xmlrpc')
+        config.add_xmlrpc_endpoint('rpc', '/api/xmlrpc')
+        config.add_xmlrpc_method(view, endpoint='rpc', method='dummy',
+                                 help="Helpful.")
+        app = config.make_wsgi_app()
+        app = TestApp(app)
+        resp = self._callFUT(app, 'system.methodHelp', ("dummy",))
+        assert(resp == "Helpful.")
 
     def test_it_with_missing_args(self):
         config = self.config
