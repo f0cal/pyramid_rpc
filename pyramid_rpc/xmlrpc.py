@@ -95,7 +95,7 @@ class EndpointPredicate(object):
         self.val = val
 
     def text(self):
-        return 'jsonrpc endpoint = %s' % self.val
+        return 'xmlrpc endpoint = %s' % self.val
 
     phash = text
 
@@ -140,7 +140,7 @@ class Endpoint(object):
 def setup_request(endpoint, request):
     try:
         params, method = xmlrpclib.loads(request.body)
-    except Exception:
+    except:
         raise XmlRpcParseError
 
     request.rpc_args = params
@@ -148,6 +148,19 @@ def setup_request(endpoint, request):
 
     if method is None:
         raise XmlRpcMethodNotFound
+
+
+def listMethods(request):
+    introspector = request.registry.introspector
+    methods = []
+    for view in introspector.get_category('views'):
+        method = None
+        for pred in view['introspectable']['predicates']:
+            if isinstance(pred, MethodPredicate):
+                method = pred.method
+        if method:
+            methods.append(method)
+    return methods
 
 
 def add_xmlrpc_endpoint(config, name, *args, **kw):
@@ -168,7 +181,7 @@ def add_xmlrpc_endpoint(config, name, *args, **kw):
     """
     default_mapper = kw.pop('default_mapper', MapplyViewMapper)
     default_renderer = kw.pop('default_renderer', DEFAULT_RENDERER)
-    default_exception_view = kw.pop('default_exception_view',exception_view)
+    default_exception_view = kw.pop('default_exception_view', exception_view)
     endpoint = Endpoint(
         name,
         default_mapper=default_mapper,
@@ -182,6 +195,10 @@ def add_xmlrpc_endpoint(config, name, *args, **kw):
     config.add_view(default_exception_view, route_name=name, context=Exception,
                     permission=NO_PERMISSION_REQUIRED,
                     renderer=endpoint.default_renderer)
+    add_xmlrpc_method(config, listMethods, endpoint=name,
+                      method="system.listMethods",
+                      permission=NO_PERMISSION_REQUIRED,
+                      renderer=endpoint.default_renderer)
 
 
 def add_xmlrpc_method(config, view, **kw):

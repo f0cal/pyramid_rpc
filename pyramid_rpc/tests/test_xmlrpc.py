@@ -138,9 +138,9 @@ class TestXMLRPCIntegration(unittest.TestCase):
         config.add_xmlrpc_endpoint('rpc', '/api/xmlrpc')
         app = config.make_wsgi_app()
         app = TestApp(app)
-        resp = app.post('/api/xmlrpc', content_type='text/xml',
-                        params='<')
         try:
+            resp = app.post('/api/xmlrpc', content_type='text/xml',
+                            params='<', status="*")
             xmlrpclib.loads(resp.body)
         except xmlrpclib.Fault:
             exc = sys.exc_info()[1] # 2.5 compat
@@ -193,6 +193,19 @@ class TestXMLRPCIntegration(unittest.TestCase):
         app = TestApp(app)
         resp = self._callFUT(app, 'dummy', (2, 3))
         self.assertEqual(resp, [2, 3, 'bar'])
+
+    def test_it_listMethods(self):
+        def view(request, a, b):
+            return [a, b]
+        config = self.config
+        config.include('pyramid_rpc.xmlrpc')
+        config.add_xmlrpc_endpoint('rpc', '/api/xmlrpc')
+        config.add_xmlrpc_method(view, endpoint='rpc', method='dummy')
+        app = config.make_wsgi_app()
+        app = TestApp(app)
+        resp = self._callFUT(app, 'system.listMethods', ())
+        print(resp)
+        assert(False)
 
     def test_it_with_missing_args(self):
         config = self.config
